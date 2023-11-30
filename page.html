@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Details Form</title>
+</head>
+<body>
+    <h1>Customer Details Form</h1>
+
+    <button id="recordButton">Record</button>
+    <button id="pauseButton" disabled>Pause</button>
+    <button id="stopButton" disabled>Stop</button>
+    <button id="submitButton" disabled>Submit</button>
+
+    <audio id="audioElement" controls></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const recordButton = document.getElementById('recordButton');
+            const pauseButton = document.getElementById('pauseButton');
+            const stopButton = document.getElementById('stopButton');
+            const submitButton = document.getElementById('submitButton');
+            const audioElement = document.getElementById('audioElement');
+
+            let mediaRecorder;
+            let audioChunks = [];
+
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function (stream) {
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    recordButton.addEventListener('click', startRecording);
+                    pauseButton.addEventListener('click', pauseRecording);
+                    stopButton.addEventListener('click', stopRecording);
+                    submitButton.addEventListener('click', submitRecording);
+
+                    mediaRecorder.ondataavailable = function (event) {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = function () {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        audioElement.src = URL.createObjectURL(audioBlob);
+                        submitButton.disabled = false;
+                    };
+                })
+                .catch(function (err) {
+                    console.error('Error accessing microphone:', err);
+                });
+
+            function startRecording() {
+                audioChunks = [];
+                mediaRecorder.start();
+                recordButton.disabled = true;
+                pauseButton.disabled = false;
+                stopButton.disabled = false;
+            }
+
+            function pauseRecording() {
+                mediaRecorder.pause();
+                recordButton.disabled = false;
+                pauseButton.disabled = true;
+                stopButton.disabled = false;
+            }
+
+            function stopRecording() {
+                mediaRecorder.stop();
+                recordButton.disabled = false;
+                pauseButton.disabled = true;
+                stopButton.disabled = true;
+            }
+
+            function submitRecording() {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append('audio_file', audioBlob, 'audio.wav');
+
+                fetch('/submit', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Results from the server:', data);
+                    // Handle the results as needed
+                })
+                .catch(error => console.error('Error submitting recording:', error));
+            }
+        });
+    </script>
+</body>
+</html>
